@@ -72,6 +72,7 @@ class TPAK_DQ_System {
         require_once TPAK_DQ_SYSTEM_PLUGIN_DIR . 'includes/class-tpak-user-roles.php';
         require_once TPAK_DQ_SYSTEM_PLUGIN_DIR . 'includes/class-tpak-limesurvey-client.php';
         require_once TPAK_DQ_SYSTEM_PLUGIN_DIR . 'includes/class-tpak-workflow.php';
+        require_once TPAK_DQ_SYSTEM_PLUGIN_DIR . 'includes/class-tpak-notifications.php';
         require_once TPAK_DQ_SYSTEM_PLUGIN_DIR . 'includes/class-limesurvey-api.php';
         require_once TPAK_DQ_SYSTEM_PLUGIN_DIR . 'includes/class-questionnaire-manager.php';
         require_once TPAK_DQ_SYSTEM_PLUGIN_DIR . 'includes/class-data-quality-checker.php';
@@ -112,6 +113,9 @@ class TPAK_DQ_System {
         
         // เริ่มต้น workflow engine
         TPAK_Workflow::get_instance();
+        
+        // เริ่มต้น notification system
+        TPAK_Notifications::get_instance();
         
         // เริ่มต้น admin
         if (is_admin()) {
@@ -303,6 +307,24 @@ class TPAK_DQ_System {
             KEY workflow_completed (workflow_completed)
         ) $charset_collate;";
         
+        // ตาราง notifications
+        $table_notifications = $wpdb->prefix . 'tpak_notifications';
+        $sql_notifications = "CREATE TABLE $table_notifications (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            user_id bigint(20) unsigned NOT NULL,
+            type varchar(50) NOT NULL,
+            title varchar(255) NOT NULL,
+            message text NOT NULL,
+            data longtext,
+            is_read tinyint(1) DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY user_id (user_id),
+            KEY type (type),
+            KEY is_read (is_read),
+            KEY created_at (created_at)
+        ) $charset_collate;";
+        
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql_questionnaires);
         dbDelta($sql_quality_checks);
@@ -311,6 +333,7 @@ class TPAK_DQ_System {
         dbDelta($sql_survey_data);
         dbDelta($sql_verification_logs);
         dbDelta($sql_workflow_status);
+        dbDelta($sql_notifications);
     }
     
     /**
