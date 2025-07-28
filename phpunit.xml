@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.5/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         backupGlobals="false"
+         backupStaticAttributes="false"
+         convertErrorsToExceptions="true"
+         convertNoticesToExceptions="true"
+         convertWarningsToExceptions="true"
+         processIsolation="false"
+         stopOnDefect="false"
+         stopOnError="false"
+         stopOnFailure="false"
+         stopOnWarning="false"
+         stopOnIncomplete="false"
+         stopOnSkipped="false"
+         failOnEmptyTestSuite="false"
+         failOnRisky="false"
+         failOnWarning="false"
+         verbose="true">
+    <testsuites>
+        <testsuite name="TPAK DQ System Test Suite">
+            <directory>tests/</directory>
+        </testsuite>
+    </testsuites>
+    
+    <coverage>
+        <include>
+            <directory suffix=".php">includes/</directory>
+        </include>
+        <exclude>
+            <directory>tests/</directory>
+            <directory>vendor/</directory>
+            <directory>node_modules/</directory>
+        </exclude>
+    </coverage>
+    
+    <php>
+        <env name="WP_TESTS_DIR" value="tests/wordpress-tests-lib"/>
+        <env name="WP_CORE_DIR" value="tests/wordpress/"/>
+    </php>
+</phpunit> 

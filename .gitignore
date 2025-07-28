@@ -1,0 +1,63 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# Build files
+/build/
+/dist/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Cache
+.cache/
+.phpunit.cache/
+
+# Test coverage
+coverage/
+htmlcov/
+
+# WordPress test files
+tests/wordpress/
+tests/wordpress-tests-lib/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+*.backup
+
+# Compiled files
+*.min.js
+*.min.css
+
+# Package files
+*.zip
+*.tar.gz
+
+# Database files
+*.sql
+*.sqlite
+
+# Configuration files with sensitive data
+wp-config.php
+config.php 
