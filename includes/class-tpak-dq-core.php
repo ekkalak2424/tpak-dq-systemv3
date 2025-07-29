@@ -137,7 +137,7 @@ class TPAK_DQ_Core {
     public function get_questionnaire_manager() {
         if ($this->questionnaire_manager === null) {
             $this->check_memory_limit();
-            $this->questionnaire_manager = new TPAK_Questionnaire_Manager();
+            $this->questionnaire_manager = TPAK_Questionnaire_Manager::get_instance();
         }
         return $this->questionnaire_manager;
     }

@@ -12,14 +12,29 @@ if (!defined('ABSPATH')) {
 class TPAK_Questionnaire_Manager {
     
     /**
+     * Singleton instance
+     */
+    private static $instance = null;
+    
+    /**
      * LimeSurvey API instance
      */
     private $limesurvey_api;
     
     /**
+     * Get singleton instance
+     */
+    public static function get_instance() {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+    
+    /**
      * Constructor
      */
-    public function __construct() {
+    private function __construct() {
         $core = TPAK_DQ_Core::get_instance();
         $this->limesurvey_api = $core->get_limesurvey_api();
     }

@@ -730,7 +730,60 @@ class TPAK_DQ_System {
         }
         
         error_log("TPAK DQ System: Force created $tables_created tables");
+        
+        // เพิ่มข้อมูลตัวอย่างหากตารางว่าง
+        $this->add_sample_data();
+        
         return $tables_created;
+    }
+    
+    /**
+     * เพิ่มข้อมูลตัวอย่าง
+     */
+    private function add_sample_data() {
+        global $wpdb;
+        
+        $table_questionnaires = $wpdb->prefix . 'tpak_questionnaires';
+        
+        // ตรวจสอบว่าตารางว่างหรือไม่
+        $count = $wpdb->get_var("SELECT COUNT(*) FROM $table_questionnaires");
+        
+        if ($count == 0) {
+            error_log('TPAK DQ System: Adding sample data...');
+            
+            $sample_questionnaires = array(
+                array(
+                    'limesurvey_id' => '123456',
+                    'title' => 'แบบสอบถามความพึงพอใจลูกค้า',
+                    'description' => 'แบบสอบถามเพื่อประเมินความพึงพอใจของลูกค้าต่อบริการ',
+                    'status' => 'active',
+                    'created_at' => current_time('mysql'),
+                    'updated_at' => current_time('mysql')
+                ),
+                array(
+                    'limesurvey_id' => '123457',
+                    'title' => 'แบบสำรวจความต้องการของประชาชน',
+                    'description' => 'แบบสำรวจเพื่อศึกษาความต้องการและความคิดเห็นของประชาชน',
+                    'status' => 'active',
+                    'created_at' => current_time('mysql'),
+                    'updated_at' => current_time('mysql')
+                ),
+                array(
+                    'limesurvey_id' => '123458',
+                    'title' => 'แบบประเมินผลการดำเนินงาน',
+                    'description' => 'แบบประเมินผลการดำเนินงานของหน่วยงาน',
+                    'status' => 'inactive',
+                    'created_at' => current_time('mysql'),
+                    'updated_at' => current_time('mysql')
+                )
+            );
+            
+            foreach ($sample_questionnaires as $questionnaire) {
+                $wpdb->insert($table_questionnaires, $questionnaire);
+            }
+            
+            error_log('TPAK DQ System: Added ' . count($sample_questionnaires) . ' sample questionnaires');
+        }
     }
     
     /**
