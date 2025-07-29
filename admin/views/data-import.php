@@ -90,6 +90,61 @@ $limesurvey_client = $core->get_limesurvey_client();
         </div>
     </div>
     
+    <!-- LimeSurvey API Settings -->
+    <div class="tpak-section">
+        <h2><?php _e('LimeSurvey API Settings', 'tpak-dq-system'); ?></h2>
+        
+        <form id="limesurvey-settings-form">
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="limesurvey_api_url"><?php _e('API URL', 'tpak-dq-system'); ?></label>
+                    </th>
+                    <td>
+                        <input type="url" id="limesurvey_api_url" name="limesurvey_api_url" 
+                               value="<?php echo esc_attr(get_option('tpak_dq_limesurvey_api_url', '')); ?>" 
+                               class="regular-text" required>
+                        <p class="description">
+                            <?php _e('LimeSurvey API URL (e.g., https://your-limesurvey.com/admin/remotecontrol)', 'tpak-dq-system'); ?>
+                        </p>
+                    </td>
+                </tr>
+                
+                <tr>
+                    <th scope="row">
+                        <label for="limesurvey_username"><?php _e('Username', 'tpak-dq-system'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text" id="limesurvey_username" name="limesurvey_username" 
+                               value="<?php echo esc_attr(get_option('tpak_dq_limesurvey_username', '')); ?>" 
+                               class="regular-text" required>
+                        <p class="description">
+                            <?php _e('LimeSurvey API username', 'tpak-dq-system'); ?>
+                        </p>
+                    </td>
+                </tr>
+                
+                <tr>
+                    <th scope="row">
+                        <label for="limesurvey_password"><?php _e('Password', 'tpak-dq-system'); ?></label>
+                    </th>
+                    <td>
+                        <input type="password" id="limesurvey_password" name="limesurvey_password" 
+                               value="<?php echo esc_attr(get_option('tpak_dq_limesurvey_password', '')); ?>" 
+                               class="regular-text" required>
+                        <p class="description">
+                            <?php _e('LimeSurvey API password', 'tpak-dq-system'); ?>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+            
+            <p class="submit">
+                <input type="submit" class="button-primary" value="<?php _e('Save API Settings', 'tpak-dq-system'); ?>">
+            </p>
+        </form>
+    </div>
+    
     <!-- Import Settings -->
     <div class="tpak-section">
         <h2><?php _e('Import Settings', 'tpak-dq-system'); ?></h2>
@@ -364,6 +419,32 @@ jQuery(document).ready(function($) {
         tbody.html(html);
     }
     
+    // Save LimeSurvey API settings
+    $('#limesurvey-settings-form').on('submit', function(e) {
+        e.preventDefault();
+        
+        var formData = $(this).serialize();
+        formData += '&action=tpak_dq_save_limesurvey_settings&nonce=' + tpak_dq_ajax.nonce;
+        
+        $.ajax({
+            url: tpak_dq_ajax.ajax_url,
+            type: 'POST',
+            data: formData,
+            success: function(response) {
+                if (response.success) {
+                    alert('<?php _e('API settings saved successfully.', 'tpak-dq-system'); ?>');
+                    // Test connection after saving
+                    $('#test-connection').click();
+                } else {
+                    alert(response.data);
+                }
+            },
+            error: function() {
+                alert('<?php _e('Failed to save API settings. Please try again.', 'tpak-dq-system'); ?>');
+            }
+        });
+    });
+    
     // Save import settings
     $('#import-settings-form').on('submit', function(e) {
         e.preventDefault();
@@ -390,6 +471,7 @@ jQuery(document).ready(function($) {
     
     // Initialize
     $('#test-connection').click();
+    loadSurveys();
     loadImportHistory();
 });
 </script> 

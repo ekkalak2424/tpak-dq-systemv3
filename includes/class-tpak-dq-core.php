@@ -106,6 +106,7 @@ class TPAK_DQ_Core {
         add_action('wp_ajax_tpak_dq_sync_single_survey', array($this, 'ajax_sync_single_survey'));
         add_action('wp_ajax_tpak_dq_get_import_history', array($this, 'ajax_get_import_history'));
         add_action('wp_ajax_tpak_dq_save_import_settings', array($this, 'ajax_save_import_settings'));
+        add_action('wp_ajax_tpak_dq_save_limesurvey_settings', array($this, 'ajax_save_limesurvey_settings'));
         add_action('wp_ajax_tpak_dq_force_create_tables', array($this, 'ajax_force_create_tables'));
         
         // Shortcodes
@@ -467,6 +468,33 @@ class TPAK_DQ_Core {
             );
             
             wp_send_json_success($history);
+        } catch (Exception $e) {
+            wp_send_json_error($e->getMessage());
+        }
+    }
+    
+    /**
+     * AJAX handler สำหรับ save LimeSurvey settings
+     */
+    public function ajax_save_limesurvey_settings() {
+        check_ajax_referer('tpak_dq_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have permission to perform this action.', 'tpak-dq-system'));
+        }
+        
+        try {
+            $settings = array(
+                'limesurvey_api_url' => sanitize_url($_POST['limesurvey_api_url']),
+                'limesurvey_username' => sanitize_text_field($_POST['limesurvey_username']),
+                'limesurvey_password' => sanitize_text_field($_POST['limesurvey_password'])
+            );
+            
+            foreach ($settings as $key => $value) {
+                update_option('tpak_dq_' . $key, $value);
+            }
+            
+            wp_send_json_success(__('LimeSurvey API settings saved successfully.', 'tpak-dq-system'));
         } catch (Exception $e) {
             wp_send_json_error($e->getMessage());
         }
