@@ -205,6 +205,8 @@ class TPAK_DQ_System {
         
         $charset_collate = $wpdb->get_charset_collate();
         
+        error_log('TPAK DQ System: Starting database table creation...');
+        
         // ตารางแบบสอบถาม
         $table_questionnaires = $wpdb->prefix . 'tpak_questionnaires';
         $sql_questionnaires = "CREATE TABLE $table_questionnaires (
@@ -367,14 +369,38 @@ class TPAK_DQ_System {
         ) $charset_collate;";
         
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        dbDelta($sql_questionnaires);
-        dbDelta($sql_quality_checks);
-        dbDelta($sql_check_results);
-        dbDelta($sql_verification_batches);
-        dbDelta($sql_survey_data);
-        dbDelta($sql_verification_logs);
-        dbDelta($sql_workflow_status);
-        dbDelta($sql_notifications);
+        
+        // สร้างตารางทั้งหมด
+        $results = array();
+        $results[] = dbDelta($sql_questionnaires);
+        $results[] = dbDelta($sql_quality_checks);
+        $results[] = dbDelta($sql_check_results);
+        $results[] = dbDelta($sql_verification_batches);
+        $results[] = dbDelta($sql_survey_data);
+        $results[] = dbDelta($sql_verification_logs);
+        $results[] = dbDelta($sql_workflow_status);
+        $results[] = dbDelta($sql_notifications);
+        
+        // Log results
+        error_log('TPAK DQ System: Database table creation completed');
+        error_log('TPAK DQ System: dbDelta results: ' . print_r($results, true));
+        
+        // ตรวจสอบว่าตารางถูกสร้างแล้ว
+        $tables = array(
+            $wpdb->prefix . 'tpak_questionnaires',
+            $wpdb->prefix . 'tpak_quality_checks',
+            $wpdb->prefix . 'tpak_check_results',
+            $wpdb->prefix . 'tpak_verification_batches',
+            $wpdb->prefix . 'tpak_survey_data',
+            $wpdb->prefix . 'tpak_verification_logs',
+            $wpdb->prefix . 'tpak_workflow_status',
+            $wpdb->prefix . 'tpak_notifications'
+        );
+        
+        foreach ($tables as $table) {
+            $exists = $wpdb->get_var("SHOW TABLES LIKE '$table'") == $table;
+            error_log("TPAK DQ System: Table $table: " . ($exists ? 'EXISTS' : 'MISSING'));
+        }
     }
     
     /**

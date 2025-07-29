@@ -98,6 +98,15 @@ class TPAK_DQ_Core {
         add_action('wp_ajax_tpak_dq_sync_single_questionnaire', array($this, 'ajax_sync_single_questionnaire'));
         add_action('wp_ajax_tpak_dq_run_quality_check', array($this, 'ajax_run_quality_check'));
         
+        // เพิ่ม AJAX handlers สำหรับ sync functionality
+        add_action('wp_ajax_tpak_dq_sync_questionnaires', array($this, 'ajax_sync_questionnaires'));
+        add_action('wp_ajax_tpak_dq_test_limesurvey_connection', array($this, 'ajax_test_limesurvey_connection'));
+        add_action('wp_ajax_tpak_dq_get_limesurvey_surveys', array($this, 'ajax_get_limesurvey_surveys'));
+        add_action('wp_ajax_tpak_dq_sync_all_surveys', array($this, 'ajax_sync_all_surveys'));
+        add_action('wp_ajax_tpak_dq_sync_single_survey', array($this, 'ajax_sync_single_survey'));
+        add_action('wp_ajax_tpak_dq_get_import_history', array($this, 'ajax_get_import_history'));
+        add_action('wp_ajax_tpak_dq_save_import_settings', array($this, 'ajax_save_import_settings'));
+        
         // Shortcodes
         add_shortcode('tpak_questionnaire_list', array($this, 'shortcode_questionnaire_list'));
         add_shortcode('tpak_quality_report', array($this, 'shortcode_quality_report'));
@@ -293,6 +302,192 @@ class TPAK_DQ_Core {
             wp_send_json_success($result);
         } catch (Exception $e) {
             wp_send_json_error(array('message' => $e->getMessage()));
+        }
+    }
+    
+    /**
+     * AJAX handler สำหรับ sync questionnaires
+     */
+    public function ajax_sync_questionnaires() {
+        check_ajax_referer('tpak_dq_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have permission to perform this action.', 'tpak-dq-system'));
+        }
+        
+        try {
+            $this->check_memory_limit();
+            
+            $result = $this->sync_questionnaires();
+            
+            if ($result) {
+                wp_send_json_success(__('Questionnaires synced successfully.', 'tpak-dq-system'));
+            } else {
+                wp_send_json_error(__('Failed to sync questionnaires.', 'tpak-dq-system'));
+            }
+        } catch (Exception $e) {
+            wp_send_json_error($e->getMessage());
+        }
+    }
+    
+    /**
+     * AJAX handler สำหรับ test LimeSurvey connection
+     */
+    public function ajax_test_limesurvey_connection() {
+        check_ajax_referer('tpak_dq_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have permission to perform this action.', 'tpak-dq-system'));
+        }
+        
+        try {
+            $limesurvey_api = $this->get_limesurvey_api();
+            $result = $limesurvey_api->test_connection();
+            
+            if ($result) {
+                wp_send_json_success(__('Connection successful!', 'tpak-dq-system'));
+            } else {
+                wp_send_json_error(__('Connection failed. Please check your settings.', 'tpak-dq-system'));
+            }
+        } catch (Exception $e) {
+            wp_send_json_error($e->getMessage());
+        }
+    }
+    
+    /**
+     * AJAX handler สำหรับ get LimeSurvey surveys
+     */
+    public function ajax_get_limesurvey_surveys() {
+        check_ajax_referer('tpak_dq_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have permission to perform this action.', 'tpak-dq-system'));
+        }
+        
+        try {
+            $limesurvey_api = $this->get_limesurvey_api();
+            $surveys = $limesurvey_api->get_surveys();
+            
+            if ($surveys) {
+                wp_send_json_success($surveys);
+            } else {
+                wp_send_json_error(__('Failed to get surveys.', 'tpak-dq-system'));
+            }
+        } catch (Exception $e) {
+            wp_send_json_error($e->getMessage());
+        }
+    }
+    
+    /**
+     * AJAX handler สำหรับ sync all surveys
+     */
+    public function ajax_sync_all_surveys() {
+        check_ajax_referer('tpak_dq_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have permission to perform this action.', 'tpak-dq-system'));
+        }
+        
+        try {
+            $this->check_memory_limit();
+            
+            $result = $this->sync_questionnaires();
+            
+            if ($result) {
+                wp_send_json_success(__('All surveys synced successfully.', 'tpak-dq-system'));
+            } else {
+                wp_send_json_error(__('Failed to sync surveys.', 'tpak-dq-system'));
+            }
+        } catch (Exception $e) {
+            wp_send_json_error($e->getMessage());
+        }
+    }
+    
+    /**
+     * AJAX handler สำหรับ sync single survey
+     */
+    public function ajax_sync_single_survey() {
+        check_ajax_referer('tpak_dq_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have permission to perform this action.', 'tpak-dq-system'));
+        }
+        
+        $survey_id = sanitize_text_field($_POST['survey_id']);
+        
+        if (empty($survey_id)) {
+            wp_send_json_error(__('Survey ID is required.', 'tpak-dq-system'));
+        }
+        
+        try {
+            $this->check_memory_limit();
+            
+            $limesurvey_api = $this->get_limesurvey_api();
+            $result = $limesurvey_api->sync_single_survey($survey_id);
+            
+            if ($result) {
+                wp_send_json_success(__('Survey synced successfully.', 'tpak-dq-system'));
+            } else {
+                wp_send_json_error(__('Failed to sync survey.', 'tpak-dq-system'));
+            }
+        } catch (Exception $e) {
+            wp_send_json_error($e->getMessage());
+        }
+    }
+    
+    /**
+     * AJAX handler สำหรับ get import history
+     */
+    public function ajax_get_import_history() {
+        check_ajax_referer('tpak_dq_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have permission to perform this action.', 'tpak-dq-system'));
+        }
+        
+        try {
+            global $wpdb;
+            
+            $table_questionnaires = $wpdb->prefix . 'tpak_questionnaires';
+            
+            $history = $wpdb->get_results(
+                "SELECT limesurvey_id as survey_id, title, updated_at as last_sync, status 
+                 FROM $table_questionnaires 
+                 ORDER BY updated_at DESC 
+                 LIMIT 50"
+            );
+            
+            wp_send_json_success($history);
+        } catch (Exception $e) {
+            wp_send_json_error($e->getMessage());
+        }
+    }
+    
+    /**
+     * AJAX handler สำหรับ save import settings
+     */
+    public function ajax_save_import_settings() {
+        check_ajax_referer('tpak_dq_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have permission to perform this action.', 'tpak-dq-system'));
+        }
+        
+        try {
+            $settings = array(
+                'auto_sync_enabled' => isset($_POST['auto_sync_enabled']) ? '1' : '0',
+                'sync_interval' => sanitize_text_field($_POST['sync_interval']),
+                'sync_new_only' => isset($_POST['sync_new_only']) ? '1' : '0',
+                'max_responses_per_sync' => intval($_POST['max_responses_per_sync'])
+            );
+            
+            foreach ($settings as $key => $value) {
+                update_option('tpak_dq_' . $key, $value);
+            }
+            
+            wp_send_json_success(__('Settings saved successfully.', 'tpak-dq-system'));
+        } catch (Exception $e) {
+            wp_send_json_error($e->getMessage());
         }
     }
     
