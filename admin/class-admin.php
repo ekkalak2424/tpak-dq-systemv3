@@ -12,14 +12,29 @@ if (!defined('ABSPATH')) {
 class TPAK_DQ_Admin {
     
     /**
+     * Instance ของ class
+     */
+    private static $instance = null;
+    
+    /**
      * Core instance
      */
     private $core;
     
     /**
+     * รับ instance เดียวของ class
+     */
+    public static function get_instance() {
+        if (null === self::$instance) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+    
+    /**
      * Constructor
      */
-    public function __construct() {
+    private function __construct() {
         $this->core = TPAK_DQ_Core::get_instance();
         $this->init_hooks();
     }

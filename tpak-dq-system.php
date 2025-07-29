@@ -36,6 +36,16 @@ class TPAK_DQ_System {
     private static $instance = null;
     
     /**
+     * Admin instance
+     */
+    private $admin = null;
+    
+    /**
+     * Public instance
+     */
+    private $public = null;
+    
+    /**
      * รับ instance เดียวของ class
      */
     public static function get_instance() {
@@ -110,11 +120,11 @@ class TPAK_DQ_System {
         
         // เริ่มต้น admin (ถ้าจำเป็น)
         if (is_admin()) {
-            TPAK_DQ_Admin::get_instance();
+            $this->admin = TPAK_DQ_Admin::get_instance();
         }
         
         // เริ่มต้น public (ถ้าจำเป็น)
-        TPAK_DQ_Public::get_instance();
+        $this->public = TPAK_DQ_Public::get_instance();
         
         // ตั้งค่า cron jobs
         $this->setup_cron_jobs();
