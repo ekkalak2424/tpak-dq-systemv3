@@ -800,4 +800,62 @@ class TPAK_DQ_Admin {
         
         return intval($count);
     }
+    
+    /**
+     * รับจำนวน my tasks
+     */
+    public function get_my_tasks_count() {
+        global $wpdb;
+        
+        $current_user_id = get_current_user_id();
+        $table_batches = $wpdb->prefix . 'tpak_verification_batches';
+        $table_workflow = $wpdb->prefix . 'tpak_workflow_status';
+        
+        $count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table_batches vb
+             LEFT JOIN $table_workflow ws ON vb.id = ws.batch_id
+             WHERE vb.assigned_to = %d AND ws.current_state IN ('pending', 'interviewing')",
+            $current_user_id
+        ));
+        
+        return intval($count);
+    }
+    
+    /**
+     * รับจำนวน pending approvals
+     */
+    public function get_pending_approvals_count() {
+        global $wpdb;
+        
+        $table_batches = $wpdb->prefix . 'tpak_verification_batches';
+        $table_workflow = $wpdb->prefix . 'tpak_workflow_status';
+        
+        $count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table_batches vb
+             LEFT JOIN $table_workflow ws ON vb.id = ws.batch_id
+             WHERE ws.current_state = %s",
+            'supervising'
+        ));
+        
+        return intval($count);
+    }
+    
+    /**
+     * รับจำนวน pending examinations
+     */
+    public function get_pending_examinations_count() {
+        global $wpdb;
+        
+        $table_batches = $wpdb->prefix . 'tpak_verification_batches';
+        $table_workflow = $wpdb->prefix . 'tpak_workflow_status';
+        
+        $count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table_batches vb
+             LEFT JOIN $table_workflow ws ON vb.id = ws.batch_id
+             WHERE ws.current_state = %s",
+            'examining'
+        ));
+        
+        return intval($count);
+    }
 } 

@@ -1,11 +1,7 @@
-# TPAK DQ System - Performance Optimization
+# TPAK DQ System - Server Configuration
+# This file contains server configuration for the TPAK DQ System plugin
 
-# Increase memory limit for plugin operations
-php_value memory_limit 512M
-php_value max_execution_time 300
-php_value max_input_time 300
-
-# Enable compression
+# Enable compression for better performance
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/plain
     AddOutputFilterByType DEFLATE text/html
@@ -18,7 +14,7 @@ php_value max_input_time 300
     AddOutputFilterByType DEFLATE application/x-javascript
 </IfModule>
 
-# Enable caching for static assets
+# Enable browser caching for static assets
 <IfModule mod_expires.c>
     ExpiresActive On
     ExpiresByType text/css "access plus 1 month"
@@ -27,7 +23,10 @@ php_value max_input_time 300
     ExpiresByType image/jpg "access plus 1 month"
     ExpiresByType image/jpeg "access plus 1 month"
     ExpiresByType image/gif "access plus 1 month"
-    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType image/ico "access plus 1 month"
+    ExpiresByType image/icon "access plus 1 month"
+    ExpiresByType text/ico "access plus 1 month"
+    ExpiresByType application/ico "access plus 1 month"
 </IfModule>
 
 # Security headers
@@ -39,27 +38,28 @@ php_value max_input_time 300
 </IfModule>
 
 # Prevent access to sensitive files
-<Files "*.log">
+<FilesMatch "\.(log|sql|bak|old|tmp)$">
     Order allow,deny
     Deny from all
-</Files>
+</FilesMatch>
 
-<Files "*.sql">
-    Order allow,deny
-    Deny from all
-</Files>
-
-<Files "*.bak">
-    Order allow,deny
-    Deny from all
-</Files>
-
-# Optimize for TPAK DQ System
+# Cache AJAX requests for TPAK DQ System
 <IfModule mod_rewrite.c>
     RewriteEngine On
     
-    # Cache AJAX requests for better performance
-    RewriteCond %{REQUEST_URI} /wp-admin/admin-ajax\.php
-    RewriteCond %{QUERY_STRING} action=tpak
-    RewriteRule .* - [E=HTTP_CACHE_CONTROL:max-age=60]
-</IfModule> 
+    # Cache AJAX requests for 60 seconds
+    RewriteCond %{QUERY_STRING} action=tpak_dq [NC]
+    RewriteCond %{REQUEST_METHOD} POST [NC]
+    RewriteRule ^wp-admin/admin-ajax\.php$ - [E=HTTP_CACHE_CONTROL:max-age=60]
+</IfModule>
+
+# Prevent direct access to plugin files
+<Files "*.php">
+    <IfModule mod_rewrite.c>
+        RewriteEngine On
+        RewriteCond %{REQUEST_URI} wp-content/plugins/tpak-dq-system/ [NC]
+        RewriteCond %{REQUEST_URI} !wp-admin/admin-ajax\.php$ [NC]
+        RewriteCond %{REQUEST_URI} !wp-content/plugins/tpak-dq-system/tpak-dq-system\.php$ [NC]
+        RewriteRule .* - [F]
+    </IfModule>
+</Files> 

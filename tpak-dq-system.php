@@ -201,6 +201,8 @@ class TPAK_DQ_System {
     private function create_tables() {
         global $wpdb;
         
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        
         $charset_collate = $wpdb->get_charset_collate();
         
         // ตารางแบบสอบถาม
