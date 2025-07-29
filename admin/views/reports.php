@@ -9,9 +9,20 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-$report_generator = TPAK_Report_Generator::get_instance();
-$report_templates = $report_generator->get_report_templates();
-$user_roles = TPAK_User_Roles::get_instance();
+try {
+    $report_generator = TPAK_Report_Generator::get_instance();
+    $report_templates = $report_generator->get_report_templates();
+} catch (Exception $e) {
+    error_log("TPAK DQ System: Error getting report generator: " . $e->getMessage());
+    $report_templates = array();
+}
+
+try {
+    $user_roles = TPAK_User_Roles::get_instance();
+} catch (Exception $e) {
+    error_log("TPAK DQ System: Error getting user roles: " . $e->getMessage());
+    $user_roles = null;
+}
 ?>
 
 <div class="wrap">

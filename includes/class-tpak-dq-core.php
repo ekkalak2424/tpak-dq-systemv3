@@ -579,14 +579,35 @@ class TPAK_DQ_Core {
         
         $table = $wpdb->prefix . 'tpak_activity_log';
         
-        $wpdb->insert($table, array(
-            'action' => $action,
-            'message' => $message,
-            'data' => json_encode($data),
-            'user_id' => get_current_user_id(),
-            'ip_address' => $this->get_client_ip(),
-            'created_at' => current_time('mysql')
-        ));
+        // ตรวจสอบว่าตารางมีอยู่หรือไม่
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table'") == $table;
+        
+        if (!$table_exists) {
+            error_log("TPAK DQ System: Activity log table does not exist: $table");
+            return false;
+        }
+        
+        try {
+            $result = $wpdb->insert($table, array(
+                'action' => $action,
+                'message' => $message,
+                'data' => json_encode($data),
+                'user_id' => get_current_user_id(),
+                'ip_address' => $this->get_client_ip(),
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+                'created_at' => current_time('mysql')
+            ));
+            
+            if ($result === false) {
+                error_log("TPAK DQ System: Failed to insert activity log: " . $wpdb->last_error);
+                return false;
+            }
+            
+            return true;
+        } catch (Exception $e) {
+            error_log("TPAK DQ System: Error logging activity: " . $e->getMessage());
+            return false;
+        }
     }
     
     /**

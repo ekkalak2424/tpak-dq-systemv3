@@ -350,6 +350,41 @@ class TPAK_DQ_System {
             KEY workflow_completed (workflow_completed)
         ) $charset_collate;";
         
+        // ตาราง reports
+        $table_reports = $wpdb->prefix . 'tpak_reports';
+        $sql_reports = "CREATE TABLE $table_reports (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            report_type varchar(50) NOT NULL,
+            report_name varchar(255) NOT NULL,
+            report_data longtext,
+            file_path varchar(500),
+            generated_by bigint(20) unsigned,
+            generated_at datetime DEFAULT CURRENT_TIMESTAMP,
+            status varchar(20) DEFAULT 'completed',
+            PRIMARY KEY (id),
+            KEY report_type (report_type),
+            KEY generated_by (generated_by),
+            KEY generated_at (generated_at),
+            KEY status (status)
+        ) $charset_collate;";
+        
+        // ตาราง activity log
+        $table_activity_log = $wpdb->prefix . 'tpak_activity_log';
+        $sql_activity_log = "CREATE TABLE $table_activity_log (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            user_id bigint(20) unsigned,
+            action varchar(100) NOT NULL,
+            message text NOT NULL,
+            data longtext,
+            ip_address varchar(45),
+            user_agent text,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY user_id (user_id),
+            KEY action (action),
+            KEY created_at (created_at)
+        ) $charset_collate;";
+        
         // ตาราง notifications
         $table_notifications = $wpdb->prefix . 'tpak_notifications';
         $sql_notifications = "CREATE TABLE $table_notifications (
@@ -379,6 +414,8 @@ class TPAK_DQ_System {
         $results[] = dbDelta($sql_survey_data);
         $results[] = dbDelta($sql_verification_logs);
         $results[] = dbDelta($sql_workflow_status);
+        $results[] = dbDelta($sql_reports);
+        $results[] = dbDelta($sql_activity_log);
         $results[] = dbDelta($sql_notifications);
         
         // Log results
@@ -394,6 +431,8 @@ class TPAK_DQ_System {
             $wpdb->prefix . 'tpak_survey_data',
             $wpdb->prefix . 'tpak_verification_logs',
             $wpdb->prefix . 'tpak_workflow_status',
+            $wpdb->prefix . 'tpak_reports',
+            $wpdb->prefix . 'tpak_activity_log',
             $wpdb->prefix . 'tpak_notifications'
         );
         
