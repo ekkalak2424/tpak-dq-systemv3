@@ -1,9 +1,8 @@
 <?php
 /**
- * Core Class สำหรับ TPAK DQ System v3
+ * TPAK DQ System - Core Class
  * 
- * จัดการฟังก์ชันหลักของระบบ รวมถึงการเชื่อมต่อ LimeSurvey API,
- * การจัดการแบบสอบถาม และการตรวจสอบคุณภาพข้อมูล
+ * จัดการ core functionality และ components ต่างๆ
  */
 
 if (!defined('ABSPATH')) {
@@ -18,24 +17,21 @@ class TPAK_DQ_Core {
     private static $instance = null;
     
     /**
-     * LimeSurvey API instance
+     * Components (lazy loaded)
      */
-    private $limesurvey_api;
+    private $limesurvey_api = null;
+    private $questionnaire_manager = null;
+    private $quality_checker = null;
+    private $report_generator = null;
+    private $user_roles = null;
+    private $workflow = null;
+    private $notifications = null;
     
     /**
-     * Questionnaire Manager instance
+     * Memory management
      */
-    private $questionnaire_manager;
-    
-    /**
-     * Data Quality Checker instance
-     */
-    private $quality_checker;
-    
-    /**
-     * Report Generator instance
-     */
-    private $report_generator;
+    private $memory_limit = 256; // MB
+    private $initial_memory = 0;
     
     /**
      * รับ instance เดียวของ class
@@ -51,18 +47,41 @@ class TPAK_DQ_Core {
      * Constructor
      */
     private function __construct() {
-        $this->init_components();
+        // ตรวจสอบ memory limit
+        $this->initial_memory = memory_get_usage(true);
+        $this->check_memory_limit();
+        
         $this->init_hooks();
     }
     
     /**
-     * เริ่มต้น components
+     * ตรวจสอบ memory limit
      */
-    private function init_components() {
-        $this->limesurvey_api = new TPAK_LimeSurvey_API();
-        $this->questionnaire_manager = new TPAK_Questionnaire_Manager();
-        $this->quality_checker = new TPAK_Data_Quality_Checker();
-        $this->report_generator = new TPAK_Report_Generator();
+    private function check_memory_limit() {
+        $current_memory = memory_get_usage(true) / 1024 / 1024; // MB
+        $limit = ini_get('memory_limit');
+        
+        if ($limit !== '-1') {
+            $limit_mb = $this->parse_memory_limit($limit);
+            if ($current_memory > ($limit_mb * 0.8)) { // 80% of limit
+                error_log('TPAK DQ System: Memory usage high - ' . round($current_memory, 2) . 'MB');
+            }
+        }
+    }
+    
+    /**
+     * Parse memory limit string
+     */
+    private function parse_memory_limit($limit) {
+        $unit = strtolower(substr($limit, -1));
+        $value = (int)substr($limit, 0, -1);
+        
+        switch ($unit) {
+            case 'k': return $value / 1024;
+            case 'm': return $value;
+            case 'g': return $value * 1024;
+            default: return $value / 1024 / 1024;
+        }
     }
     
     /**
@@ -85,31 +104,80 @@ class TPAK_DQ_Core {
     }
     
     /**
-     * รับ LimeSurvey API instance
+     * รับ LimeSurvey API instance (lazy loading)
      */
     public function get_limesurvey_api() {
+        if ($this->limesurvey_api === null) {
+            $this->check_memory_limit();
+            $this->limesurvey_api = new TPAK_LimeSurvey_API();
+        }
         return $this->limesurvey_api;
     }
     
     /**
-     * รับ Questionnaire Manager instance
+     * รับ Questionnaire Manager instance (lazy loading)
      */
     public function get_questionnaire_manager() {
+        if ($this->questionnaire_manager === null) {
+            $this->check_memory_limit();
+            $this->questionnaire_manager = new TPAK_Questionnaire_Manager();
+        }
         return $this->questionnaire_manager;
     }
     
     /**
-     * รับ Quality Checker instance
+     * รับ Quality Checker instance (lazy loading)
      */
     public function get_quality_checker() {
+        if ($this->quality_checker === null) {
+            $this->check_memory_limit();
+            $this->quality_checker = new TPAK_Data_Quality_Checker();
+        }
         return $this->quality_checker;
     }
     
     /**
-     * รับ Report Generator instance
+     * รับ Report Generator instance (lazy loading)
      */
     public function get_report_generator() {
+        if ($this->report_generator === null) {
+            $this->check_memory_limit();
+            $this->report_generator = new TPAK_Report_Generator();
+        }
         return $this->report_generator;
+    }
+    
+    /**
+     * รับ User Roles instance (lazy loading)
+     */
+    public function get_user_roles() {
+        if ($this->user_roles === null) {
+            $this->check_memory_limit();
+            $this->user_roles = TPAK_User_Roles::get_instance();
+        }
+        return $this->user_roles;
+    }
+    
+    /**
+     * รับ Workflow instance (lazy loading)
+     */
+    public function get_workflow() {
+        if ($this->workflow === null) {
+            $this->check_memory_limit();
+            $this->workflow = TPAK_Workflow::get_instance();
+        }
+        return $this->workflow;
+    }
+    
+    /**
+     * รับ Notifications instance (lazy loading)
+     */
+    public function get_notifications() {
+        if ($this->notifications === null) {
+            $this->check_memory_limit();
+            $this->notifications = TPAK_Notifications::get_instance();
+        }
+        return $this->notifications;
     }
     
     /**
@@ -117,11 +185,19 @@ class TPAK_DQ_Core {
      */
     public function sync_questionnaires() {
         try {
-            $questionnaires = $this->limesurvey_api->get_surveys();
-            $this->questionnaire_manager->sync_questionnaires($questionnaires);
+            $this->check_memory_limit();
+            
+            $limesurvey_api = $this->get_limesurvey_api();
+            $questionnaire_manager = $this->get_questionnaire_manager();
+            
+            $questionnaires = $limesurvey_api->get_surveys();
+            $questionnaire_manager->sync_questionnaires($questionnaires);
             
             // บันทึก log
             $this->log_activity('questionnaire_sync', 'Synced ' . count($questionnaires) . ' questionnaires from LimeSurvey');
+            
+            // Clear memory
+            $this->clear_memory();
             
             return true;
         } catch (Exception $e) {
@@ -135,167 +211,191 @@ class TPAK_DQ_Core {
      */
     public function run_quality_checks() {
         try {
-            $active_questionnaires = $this->questionnaire_manager->get_active_questionnaires();
+            $this->check_memory_limit();
+            
+            $questionnaire_manager = $this->get_questionnaire_manager();
+            $quality_checker = $this->get_quality_checker();
+            
+            $active_questionnaires = $questionnaire_manager->get_active_questionnaires();
             $total_checks = 0;
             
             foreach ($active_questionnaires as $questionnaire) {
-                $checks = $this->quality_checker->run_checks_for_questionnaire($questionnaire->id);
+                $this->check_memory_limit();
+                $checks = $quality_checker->run_checks_for_questionnaire($questionnaire->id);
                 $total_checks += count($checks);
+                
+                // Clear memory after each questionnaire
+                if ($total_checks % 10 === 0) {
+                    $this->clear_memory();
+                }
             }
             
-            // บันทึก log
-            $this->log_activity('quality_check_run', "Ran quality checks for {$total_checks} responses");
+            $this->log_activity('quality_checks', 'Ran ' . $total_checks . ' quality checks');
+            
+            // Clear memory
+            $this->clear_memory();
             
             return true;
         } catch (Exception $e) {
-            $this->log_activity('quality_check_error', 'Error running quality checks: ' . $e->getMessage());
+            $this->log_activity('quality_checks_error', 'Error running quality checks: ' . $e->getMessage());
             return false;
         }
     }
     
     /**
-     * สร้างรายงานอัตโนมัติ
+     * สร้างรายงาน
      */
     public function generate_reports() {
         try {
-            $reports = $this->report_generator->generate_auto_reports();
+            $this->check_memory_limit();
             
-            // บันทึก log
-            $this->log_activity('report_generation', 'Generated ' . count($reports) . ' auto reports');
+            $report_generator = $this->get_report_generator();
+            $report_generator->generate_auto_reports();
+            
+            $this->log_activity('reports_generated', 'Auto reports generated successfully');
+            
+            // Clear memory
+            $this->clear_memory();
             
             return true;
         } catch (Exception $e) {
-            $this->log_activity('report_generation_error', 'Error generating reports: ' . $e->getMessage());
+            $this->log_activity('reports_error', 'Error generating reports: ' . $e->getMessage());
             return false;
         }
     }
     
     /**
-     * AJAX: ทดสอบการเชื่อมต่อ LimeSurvey
+     * Clear memory
+     */
+    private function clear_memory() {
+        if (function_exists('gc_collect_cycles')) {
+            gc_collect_cycles();
+        }
+        
+        // Force garbage collection
+        if (function_exists('memory_reset_peak_usage')) {
+            memory_reset_peak_usage();
+        }
+    }
+    
+    /**
+     * AJAX test connection
      */
     public function ajax_test_connection() {
-        check_ajax_referer('tpak_dq_nonce', 'nonce');
-        
-        if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'tpak-dq-system'));
+        if (!wp_verify_nonce($_POST['nonce'], 'tpak_dq_nonce')) {
+            wp_die(__('Security check failed', 'tpak-dq-system'));
         }
         
-        $result = $this->limesurvey_api->test_connection();
-        
-        if ($result['success']) {
-            wp_send_json_success($result['message']);
-        } else {
-            wp_send_json_error($result['message']);
+        try {
+            $limesurvey_api = $this->get_limesurvey_api();
+            $result = $limesurvey_api->test_connection();
+            
+            wp_send_json_success($result);
+        } catch (Exception $e) {
+            wp_send_json_error(array('message' => $e->getMessage()));
         }
     }
     
     /**
-     * AJAX: Sync แบบสอบถามเดียว
+     * AJAX sync single questionnaire
      */
     public function ajax_sync_single_questionnaire() {
-        check_ajax_referer('tpak_dq_nonce', 'nonce');
-        
-        if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'tpak-dq-system'));
+        if (!wp_verify_nonce($_POST['nonce'], 'tpak_dq_nonce')) {
+            wp_die(__('Security check failed', 'tpak-dq-system'));
         }
         
-        $questionnaire_id = intval($_POST['questionnaire_id']);
-        $result = $this->questionnaire_manager->sync_single_questionnaire($questionnaire_id);
-        
-        if ($result['success']) {
-            wp_send_json_success($result['message']);
-        } else {
-            wp_send_json_error($result['message']);
+        try {
+            $questionnaire_id = intval($_POST['questionnaire_id']);
+            $questionnaire_manager = $this->get_questionnaire_manager();
+            $result = $questionnaire_manager->sync_single_questionnaire($questionnaire_id);
+            
+            wp_send_json_success($result);
+        } catch (Exception $e) {
+            wp_send_json_error(array('message' => $e->getMessage()));
         }
     }
     
     /**
-     * AJAX: รันการตรวจสอบคุณภาพข้อมูล
+     * AJAX run quality check
      */
     public function ajax_run_quality_check() {
-        check_ajax_referer('tpak_dq_nonce', 'nonce');
-        
-        if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'tpak-dq-system'));
+        if (!wp_verify_nonce($_POST['nonce'], 'tpak_dq_nonce')) {
+            wp_die(__('Security check failed', 'tpak-dq-system'));
         }
         
-        $questionnaire_id = intval($_POST['questionnaire_id']);
-        $result = $this->quality_checker->run_checks_for_questionnaire($questionnaire_id);
-        
-        if ($result['success']) {
-            wp_send_json_success($result['message']);
-        } else {
-            wp_send_json_error($result['message']);
+        try {
+            $questionnaire_id = intval($_POST['questionnaire_id']);
+            $quality_checker = $this->get_quality_checker();
+            $result = $quality_checker->run_checks_for_questionnaire($questionnaire_id);
+            
+            wp_send_json_success($result);
+        } catch (Exception $e) {
+            wp_send_json_error(array('message' => $e->getMessage()));
         }
     }
     
     /**
-     * Shortcode: แสดงรายการแบบสอบถาม
+     * Shortcode สำหรับแสดงรายการแบบสอบถาม
      */
     public function shortcode_questionnaire_list($atts) {
         $atts = shortcode_atts(array(
-            'status' => 'active',
             'limit' => 10,
-            'show_description' => true
+            'status' => 'active'
         ), $atts);
         
-        $questionnaires = $this->questionnaire_manager->get_questionnaires($atts);
-        
-        ob_start();
-        include TPAK_DQ_SYSTEM_PLUGIN_DIR . 'public/views/questionnaire-list.php';
-        return ob_get_clean();
+        try {
+            $questionnaire_manager = $this->get_questionnaire_manager();
+            $questionnaires = $questionnaire_manager->get_questionnaires($atts);
+            
+            ob_start();
+            include TPAK_DQ_SYSTEM_PLUGIN_DIR . 'public/views/questionnaire-list.php';
+            return ob_get_clean();
+        } catch (Exception $e) {
+            return '<p class="tpak-error">' . esc_html($e->getMessage()) . '</p>';
+        }
     }
     
     /**
-     * Shortcode: แสดงรายงานคุณภาพข้อมูล
+     * Shortcode สำหรับแสดงรายงานคุณภาพ
      */
     public function shortcode_quality_report($atts) {
         $atts = shortcode_atts(array(
             'questionnaire_id' => 0,
-            'period' => 'month',
-            'show_chart' => true
+            'format' => 'summary'
         ), $atts);
         
-        $report_data = $this->report_generator->get_quality_report($atts);
-        
-        ob_start();
-        include TPAK_DQ_SYSTEM_PLUGIN_DIR . 'public/views/quality-report.php';
-        return ob_get_clean();
+        try {
+            $quality_checker = $this->get_quality_checker();
+            $report = $quality_checker->get_quality_report($atts['questionnaire_id']);
+            
+            ob_start();
+            include TPAK_DQ_SYSTEM_PLUGIN_DIR . 'public/views/quality-report.php';
+            return ob_get_clean();
+        } catch (Exception $e) {
+            return '<p class="tpak-error">' . esc_html($e->getMessage()) . '</p>';
+        }
     }
     
     /**
-     * บันทึกกิจกรรมลง log
+     * บันทึก activity log
      */
     public function log_activity($action, $message, $data = array()) {
-        $log_entry = array(
+        global $wpdb;
+        
+        $table = $wpdb->prefix . 'tpak_activity_log';
+        
+        $wpdb->insert($table, array(
             'action' => $action,
             'message' => $message,
-            'data' => $data,
+            'data' => json_encode($data),
             'user_id' => get_current_user_id(),
-            'timestamp' => current_time('mysql'),
-            'ip_address' => $this->get_client_ip()
-        );
-        
-        // บันทึกลงฐานข้อมูล
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'tpak_activity_log';
-        
-        $wpdb->insert(
-            $table_name,
-            array(
-                'action' => $log_entry['action'],
-                'message' => $log_entry['message'],
-                'data' => json_encode($log_entry['data']),
-                'user_id' => $log_entry['user_id'],
-                'ip_address' => $log_entry['ip_address'],
-                'created_at' => $log_entry['timestamp']
-            ),
-            array('%s', '%s', '%s', '%d', '%s', '%s')
-        );
+            'ip_address' => $this->get_client_ip(),
+            'created_at' => current_time('mysql')
+        ));
     }
     
     /**
-     * รับ IP address ของ client
+     * รับ client IP
      */
     private function get_client_ip() {
         $ip_keys = array('HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR');
@@ -315,25 +415,21 @@ class TPAK_DQ_Core {
     }
     
     /**
-     * รับการตั้งค่าของปลั๊กอิน
+     * รับ setting
      */
     public function get_setting($key, $default = null) {
-        $option_key = 'tpak_dq_' . $key;
-        $value = get_option($option_key, $default);
-        
-        return $value;
+        return get_option('tpak_dq_' . $key, $default);
     }
     
     /**
-     * ตั้งค่าของปลั๊กอิน
+     * ตั้งค่า setting
      */
     public function set_setting($key, $value) {
-        $option_key = 'tpak_dq_' . $key;
-        return update_option($option_key, $value);
+        return update_option('tpak_dq_' . $key, $value);
     }
     
     /**
-     * ตรวจสอบว่า LimeSurvey API พร้อมใช้งานหรือไม่
+     * ตรวจสอบว่า LimeSurvey พร้อมใช้งานหรือไม่
      */
     public function is_limesurvey_ready() {
         $api_url = $this->get_setting('limesurvey_api_url');
@@ -344,16 +440,16 @@ class TPAK_DQ_Core {
     }
     
     /**
-     * รับ URL สำหรับ admin page
+     * รับ admin URL
      */
     public function get_admin_url($page = '') {
-        return admin_url('admin.php?page=tpak-dq-system' . ($page ? '&tab=' . $page : ''));
+        return admin_url('admin.php?page=tpak-dq-system' . ($page ? '&' . $page : ''));
     }
     
     /**
-     * รับ URL สำหรับ public page
+     * รับ public URL
      */
     public function get_public_url($page = '') {
-        return home_url('tpak-dq/' . $page);
+        return home_url('tpak-dq-system' . ($page ? '/' . $page : ''));
     }
 } 

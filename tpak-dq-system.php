@@ -102,31 +102,57 @@ class TPAK_DQ_System {
      * เริ่มต้นปลั๊กอิน
      */
     public function init() {
-        // เริ่มต้น core class
+        // ตรวจสอบ memory limit
+        $this->check_memory_limit();
+        
+        // เริ่มต้น core class (lazy loading)
         TPAK_DQ_Core::get_instance();
         
-        // เริ่มต้น user roles
-        TPAK_User_Roles::get_instance();
-        
-        // เริ่มต้น LimeSurvey client
-        TPAK_LimeSurvey_Client::get_instance();
-        
-        // เริ่มต้น workflow engine
-        TPAK_Workflow::get_instance();
-        
-        // เริ่มต้น notification system
-        TPAK_Notifications::get_instance();
-        
-        // เริ่มต้น admin
+        // เริ่มต้น admin (ถ้าจำเป็น)
         if (is_admin()) {
             TPAK_DQ_Admin::get_instance();
         }
         
-        // เริ่มต้น public
+        // เริ่มต้น public (ถ้าจำเป็น)
         TPAK_DQ_Public::get_instance();
         
         // ตั้งค่า cron jobs
         $this->setup_cron_jobs();
+    }
+    
+    /**
+     * ตรวจสอบ memory limit
+     */
+    private function check_memory_limit() {
+        $current_memory = memory_get_usage(true) / 1024 / 1024; // MB
+        $limit = ini_get('memory_limit');
+        
+        if ($limit !== '-1') {
+            $limit_mb = $this->parse_memory_limit($limit);
+            if ($current_memory > ($limit_mb * 0.7)) { // 70% of limit
+                error_log('TPAK DQ System: High memory usage detected - ' . round($current_memory, 2) . 'MB');
+                
+                // Force garbage collection
+                if (function_exists('gc_collect_cycles')) {
+                    gc_collect_cycles();
+                }
+            }
+        }
+    }
+    
+    /**
+     * Parse memory limit string
+     */
+    private function parse_memory_limit($limit) {
+        $unit = strtolower(substr($limit, -1));
+        $value = (int)substr($limit, 0, -1);
+        
+        switch ($unit) {
+            case 'k': return $value / 1024;
+            case 'm': return $value;
+            case 'g': return $value * 1024;
+            default: return $value / 1024 / 1024;
+        }
     }
     
     /**
