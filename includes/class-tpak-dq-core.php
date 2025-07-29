@@ -106,6 +106,7 @@ class TPAK_DQ_Core {
         add_action('wp_ajax_tpak_dq_sync_single_survey', array($this, 'ajax_sync_single_survey'));
         add_action('wp_ajax_tpak_dq_get_import_history', array($this, 'ajax_get_import_history'));
         add_action('wp_ajax_tpak_dq_save_import_settings', array($this, 'ajax_save_import_settings'));
+        add_action('wp_ajax_tpak_dq_force_create_tables', array($this, 'ajax_force_create_tables'));
         
         // Shortcodes
         add_shortcode('tpak_questionnaire_list', array($this, 'shortcode_questionnaire_list'));
@@ -494,6 +495,33 @@ class TPAK_DQ_Core {
             }
             
             wp_send_json_success(__('Settings saved successfully.', 'tpak-dq-system'));
+        } catch (Exception $e) {
+            wp_send_json_error($e->getMessage());
+        }
+    }
+    
+    /**
+     * AJAX handler สำหรับ force create tables
+     */
+    public function ajax_force_create_tables() {
+        check_ajax_referer('tpak_dq_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have permission to perform this action.', 'tpak-dq-system'));
+        }
+        
+        try {
+            $this->check_memory_limit();
+            
+            // เรียกใช้ force_create_tables จาก main plugin class
+            $main_plugin = TPAK_DQ_System::get_instance();
+            $tables_created = $main_plugin->force_create_tables();
+            
+            if ($tables_created > 0) {
+                wp_send_json_success(sprintf(__('Successfully created %d database tables.', 'tpak-dq-system'), $tables_created));
+            } else {
+                wp_send_json_error(__('No tables were created. They may already exist.', 'tpak-dq-system'));
+            }
         } catch (Exception $e) {
             wp_send_json_error($e->getMessage());
         }

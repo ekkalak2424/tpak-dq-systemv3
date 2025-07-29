@@ -1,158 +1,243 @@
 # TPAK DQ System - Database Tables Fix Summary
 
-## 🚨 ปัญหาที่พบ
+## �� ปัญหาที่พบ
 
-### **Missing Database Tables**
-```
-WordPress database error Table 'dqtpak_dq_system.wp_tpak_reports' doesn't exist
-WordPress database error Table 'dqtpak_dq_system.wp_tpak_activity_log' doesn't exist
-```
+### **Database Tables ไม่ถูกสร้าง**
+จากภาพแสดงว่า:
+- "Some tables are missing"
+- "Please deactivate and reactivate the plugin to create missing tables"
+- Database Tables แสดงสถานะ ❌
 
-### **Undefined Method Errors**
+### **Error Logs ที่พบ**
 ```
-PHP Fatal error: Call to undefined method TPAK_Report_Generator::get_instance()
+WordPress database error Table 'dqtpak_dq_system.wp_tpak_questionnaires' doesn't exist
+TPAK DQ System: Activity log table does not exist: wp_tpak_activity_log
 ```
 
 ### **Missing Tables**
+- `wp_tpak_questionnaires` - สำหรับเก็บแบบสอบถาม
+- `wp_tpak_quality_checks` - สำหรับเก็บการตรวจสอบคุณภาพ
+- `wp_tpak_check_results` - สำหรับเก็บผลการตรวจสอบ
+- `wp_tpak_verification_batches` - สำหรับเก็บชุดข้อมูลตรวจสอบ
+- `wp_tpak_survey_data` - สำหรับเก็บข้อมูลจาก LimeSurvey
+- `wp_tpak_verification_logs` - สำหรับเก็บประวัติการตรวจสอบ
+- `wp_tpak_workflow_status` - สำหรับเก็บสถานะ workflow
 - `wp_tpak_reports` - สำหรับเก็บรายงาน
 - `wp_tpak_activity_log` - สำหรับเก็บ activity logs
+- `wp_tpak_notifications` - สำหรับเก็บการแจ้งเตือน
 
 ## ✅ การแก้ไขที่ทำ
 
-### 1. **เพิ่ม Missing Database Tables**
+### 1. **ปรับปรุง Database Table Creation**
 
-#### ตาราง wp_tpak_reports
-```sql
-CREATE TABLE wp_tpak_reports (
-    id mediumint(9) NOT NULL AUTO_INCREMENT,
-    report_type varchar(50) NOT NULL,
-    report_name varchar(255) NOT NULL,
-    report_data longtext,
-    file_path varchar(500),
-    generated_by bigint(20) unsigned,
-    generated_at datetime DEFAULT CURRENT_TIMESTAMP,
-    status varchar(20) DEFAULT 'completed',
-    PRIMARY KEY (id),
-    KEY report_type (report_type),
-    KEY generated_by (generated_by),
-    KEY generated_at (generated_at),
-    KEY status (status)
-) $charset_collate;
-```
-
-#### ตาราง wp_tpak_activity_log
-```sql
-CREATE TABLE wp_tpak_activity_log (
-    id mediumint(9) NOT NULL AUTO_INCREMENT,
-    user_id bigint(20) unsigned,
-    action varchar(100) NOT NULL,
-    message text NOT NULL,
-    data longtext,
-    ip_address varchar(45),
-    user_agent text,
-    created_at datetime DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    KEY user_id (user_id),
-    KEY action (action),
-    KEY created_at (created_at)
-) $charset_collate;
-```
-
-### 2. **เพิ่ม dbDelta Calls**
-
-#### เพิ่มใน create_tables()
+#### เพิ่ม force_create_tables() Method
 ```php
-$results[] = dbDelta($sql_reports);
-$results[] = dbDelta($sql_activity_log);
-```
-
-#### เพิ่มในการตรวจสอบตาราง
-```php
-$tables = array(
-    // ... existing tables
-    $wpdb->prefix . 'tpak_reports',
-    $wpdb->prefix . 'tpak_activity_log',
-    // ... other tables
-);
-```
-
-### 3. **ปรับปรุง log_activity Method**
-
-#### เพิ่ม Error Handling
-```php
-public function log_activity($action, $message, $data = array()) {
+public function force_create_tables() {
     global $wpdb;
     
-    $table = $wpdb->prefix . 'tpak_activity_log';
+    error_log('TPAK DQ System: Force creating tables...');
     
-    // ตรวจสอบว่าตารางมีอยู่หรือไม่
-    $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table'") == $table;
+    // ใช้ SQL โดยตรงแทน dbDelta
+    $tables_created = 0;
     
-    if (!$table_exists) {
-        error_log("TPAK DQ System: Activity log table does not exist: $table");
-        return false;
+    // สร้างตารางทั้งหมดด้วย CREATE TABLE IF NOT EXISTS
+    // ใช้ ENGINE=InnoDB และ utf8mb4 charset
+    
+    // ตารางแบบสอบถาม
+    $table_questionnaires = $wpdb->prefix . 'tpak_questionnaires';
+    $sql_questionnaires = "CREATE TABLE IF NOT EXISTS $table_questionnaires (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        limesurvey_id varchar(50) NOT NULL,
+        title varchar(255) NOT NULL,
+        description text,
+        status varchar(20) DEFAULT 'active',
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY limesurvey_id (limesurvey_id),
+        KEY status (status),
+        KEY created_at (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+    
+    if ($wpdb->query($sql_questionnaires) !== false) {
+        $tables_created++;
+        error_log("TPAK DQ System: Created table: $table_questionnaires");
+    }
+    
+    // สร้างตารางอื่นๆ ในลักษณะเดียวกัน...
+    
+    error_log("TPAK DQ System: Force created $tables_created tables");
+    return $tables_created;
+}
+```
+
+#### ปรับปรุง ensure_tables_exist() Method
+```php
+private function ensure_tables_exist() {
+    global $wpdb;
+    
+    $required_tables = array(
+        $wpdb->prefix . 'tpak_questionnaires',
+        $wpdb->prefix . 'tpak_quality_checks',
+        $wpdb->prefix . 'tpak_check_results',
+        $wpdb->prefix . 'tpak_verification_batches',
+        $wpdb->prefix . 'tpak_survey_data',
+        $wpdb->prefix . 'tpak_verification_logs',
+        $wpdb->prefix . 'tpak_workflow_status',
+        $wpdb->prefix . 'tpak_reports',
+        $wpdb->prefix . 'tpak_activity_log',
+        $wpdb->prefix . 'tpak_notifications'
+    );
+    
+    $missing_tables = array();
+    
+    foreach ($required_tables as $table) {
+        $exists = $wpdb->get_var("SHOW TABLES LIKE '$table'") == $table;
+        if (!$exists) {
+            $missing_tables[] = $table;
+            error_log("TPAK DQ System: Missing table: $table");
+        }
+    }
+    
+    if (!empty($missing_tables)) {
+        error_log("TPAK DQ System: Recreating missing tables: " . implode(', ', $missing_tables));
+        $this->force_create_tables();
+    }
+}
+```
+
+### 2. **เพิ่ม AJAX Handler สำหรับ Force Create Tables**
+
+#### เพิ่ม AJAX Hook
+```php
+add_action('wp_ajax_tpak_dq_force_create_tables', array($this, 'ajax_force_create_tables'));
+```
+
+#### เพิ่ม AJAX Handler Method
+```php
+public function ajax_force_create_tables() {
+    check_ajax_referer('tpak_dq_nonce', 'nonce');
+    
+    if (!current_user_can('manage_options')) {
+        wp_die(__('You do not have permission to perform this action.', 'tpak-dq-system'));
     }
     
     try {
-        $result = $wpdb->insert($table, array(
-            'action' => $action,
-            'message' => $message,
-            'data' => json_encode($data),
-            'user_id' => get_current_user_id(),
-            'ip_address' => $this->get_client_ip(),
-            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
-            'created_at' => current_time('mysql')
-        ));
+        $this->check_memory_limit();
         
-        if ($result === false) {
-            error_log("TPAK DQ System: Failed to insert activity log: " . $wpdb->last_error);
-            return false;
+        // เรียกใช้ force_create_tables จาก main plugin class
+        $main_plugin = TPAK_DQ_System::get_instance();
+        $tables_created = $main_plugin->force_create_tables();
+        
+        if ($tables_created > 0) {
+            wp_send_json_success(sprintf(__('Successfully created %d database tables.', 'tpak-dq-system'), $tables_created));
+        } else {
+            wp_send_json_error(__('No tables were created. They may already exist.', 'tpak-dq-system'));
         }
-        
-        return true;
     } catch (Exception $e) {
-        error_log("TPAK DQ System: Error logging activity: " . $e->getMessage());
-        return false;
+        wp_send_json_error($e->getMessage());
     }
 }
 ```
 
-### 4. **ปรับปรุง admin/views/reports.php**
+### 3. **เพิ่มปุ่ม Force Create Tables ใน Settings Page**
 
-#### เพิ่ม Error Handling
-```php
-try {
-    $report_generator = TPAK_Report_Generator::get_instance();
-    $report_templates = $report_generator->get_report_templates();
-} catch (Exception $e) {
-    error_log("TPAK DQ System: Error getting report generator: " . $e->getMessage());
-    $report_templates = array();
-}
+#### เพิ่มปุ่มใน Actions Section
+```html
+<button type="button" class="button button-primary" id="force-create-tables">
+    <?php _e('Force Create Database Tables', 'tpak-dq-system'); ?>
+</button>
+```
 
-try {
-    $user_roles = TPAK_User_Roles::get_instance();
-} catch (Exception $e) {
-    error_log("TPAK DQ System: Error getting user roles: " . $e->getMessage());
-    $user_roles = null;
-}
+#### เพิ่ม JavaScript Handler
+```javascript
+// Force create tables
+$('#force-create-tables').on('click', function() {
+    var button = $(this);
+    button.prop('disabled', true).text('<?php _e('Creating Tables...', 'tpak-dq-system'); ?>');
+    
+    $.ajax({
+        url: tpak_dq_ajax.ajax_url,
+        type: 'POST',
+        data: {
+            action: 'tpak_dq_force_create_tables',
+            nonce: tpak_dq_ajax.nonce
+        },
+        success: function(response) {
+            if (response.success) {
+                $('#action-results').html('<div class="notice notice-success"><p>' + response.data + '</p></div>');
+                // Reload page after successful table creation
+                setTimeout(function() {
+                    location.reload();
+                }, 2000);
+            } else {
+                $('#action-results').html('<div class="notice notice-error"><p>' + response.data + '</p></div>');
+            }
+        },
+        error: function() {
+            $('#action-results').html('<div class="notice notice-error"><p><?php _e('Failed to create database tables', 'tpak-dq-system'); ?></p></div>');
+        },
+        complete: function() {
+            button.prop('disabled', false).text('<?php _e('Force Create Database Tables', 'tpak-dq-system'); ?>');
+        }
+    });
+});
 ```
 
 ## 📁 Files ที่แก้ไข
 
 ### **แก้ไข Files:**
-- ✅ `tpak-dq-system.php` - เพิ่มตาราง reports และ activity_log
-- ✅ `includes/class-tpak-dq-core.php` - ปรับปรุง log_activity method
-- ✅ `admin/views/reports.php` - เพิ่ม error handling
+- ✅ `tpak-dq-system.php` - เพิ่ม force_create_tables() และปรับปรุง ensure_tables_exist()
+- ✅ `includes/class-tpak-dq-core.php` - เพิ่ม ajax_force_create_tables() และ AJAX hook
+- ✅ `admin/views/settings.php` - เพิ่มปุ่ม Force Create Tables และ JavaScript handler
 
 ## 🔧 การทดสอบ
 
-### 1. **Test Database Tables**
+### 1. **Test Database Tables Creation**
+```php
+// ทดสอบ force create tables
+$main_plugin = TPAK_DQ_System::get_instance();
+$tables_created = $main_plugin->force_create_tables();
+error_log("Tables created: $tables_created");
+```
+
+### 2. **Test AJAX Handler**
+```javascript
+// ทดสอบ AJAX call
+$.ajax({
+    url: tpak_dq_ajax.ajax_url,
+    type: 'POST',
+    data: {
+        action: 'tpak_dq_force_create_tables',
+        nonce: tpak_dq_ajax.nonce
+    },
+    success: function(response) {
+        console.log('Response:', response);
+    }
+});
+```
+
+### 3. **Test Settings Page**
+- ไปที่ TPAK DQ System > Settings
+- คลิกปุ่ม "Force Create Database Tables"
+- ตรวจสอบว่า tables ถูกสร้างแล้ว
+- ตรวจสอบว่า page reload หลังจากสร้างสำเร็จ
+
+### 4. **Test Database Tables**
 ```php
 // ทดสอบว่าตารางถูกสร้างแล้ว
 global $wpdb;
 $tables = array(
+    $wpdb->prefix . 'tpak_questionnaires',
+    $wpdb->prefix . 'tpak_quality_checks',
+    $wpdb->prefix . 'tpak_check_results',
+    $wpdb->prefix . 'tpak_verification_batches',
+    $wpdb->prefix . 'tpak_survey_data',
+    $wpdb->prefix . 'tpak_verification_logs',
+    $wpdb->prefix . 'tpak_workflow_status',
     $wpdb->prefix . 'tpak_reports',
-    $wpdb->prefix . 'tpak_activity_log'
+    $wpdb->prefix . 'tpak_activity_log',
+    $wpdb->prefix . 'tpak_notifications'
 );
 
 foreach ($tables as $table) {
@@ -161,97 +246,67 @@ foreach ($tables as $table) {
 }
 ```
 
-### 2. **Test Report Generator**
-```php
-// ทดสอบ report generator
-try {
-    $generator = TPAK_Report_Generator::get_instance();
-    $templates = $generator->get_report_templates();
-    error_log("Report templates: " . count($templates));
-} catch (Exception $e) {
-    error_log("Report generator error: " . $e->getMessage());
-}
-```
-
-### 3. **Test Activity Logging**
-```php
-// ทดสอบ activity logging
-$core = TPAK_DQ_Core::get_instance();
-$result = $core->log_activity('test', 'Test activity log', array('test' => true));
-error_log("Activity log result: " . ($result ? 'SUCCESS' : 'FAIL'));
-```
-
-### 4. **Test Pages**
-- ไปที่ TPAK DQ System > Reports
-- ตรวจสอบว่า page โหลดได้
-- ทดสอบ sync functionality
-- ตรวจสอบ error logs
-
 ## 📊 ผลลัพธ์ที่คาดหวัง
 
 ### **ก่อนแก้ไข:**
-- ❌ Missing database tables
-- ❌ Undefined method errors
-- ❌ Activity logging failures
-- ❌ Reports page errors
-- ❌ Sync functionality errors
+- ❌ Database tables ไม่มี
+- ❌ "Some tables are missing" แสดงในหน้า Settings
+- ❌ ไม่มีวิธี force create tables
+- ❌ Error logs แสดง missing tables
 
 ### **หลังแก้ไข:**
 - ✅ Database tables ถูกสร้างครบถ้วน
-- ✅ Report generator ทำงานได้
-- ✅ Activity logging ทำงานได้
-- ✅ Reports page แสดงผลได้
-- ✅ Sync functionality ทำงานได้
+- ✅ "Database Tables: All tables exist" แสดงในหน้า Settings
+- ✅ มีปุ่ม "Force Create Database Tables" ในหน้า Settings
+- ✅ AJAX handler สำหรับ force create tables
+- ✅ Error logs แสดง table creation success
 
 ## 🚀 Features ที่เพิ่ม
 
-### 1. **Database Tables**
-- Reports table สำหรับเก็บรายงาน
-- Activity log table สำหรับเก็บ activity logs
-- Proper indexing สำหรับ performance
-- Error handling และ logging
+### 1. **Enhanced Database Creation**
+- Force create tables ด้วย SQL โดยตรง
+- ใช้ CREATE TABLE IF NOT EXISTS
+- ENGINE=InnoDB และ utf8mb4 charset
+- Comprehensive error logging
+- Table existence verification
 
-### 2. **Error Handling**
-- Table existence checking
-- Exception handling
+### 2. **AJAX Functionality**
+- Force create tables via AJAX
+- Real-time feedback
+- Automatic page reload after success
+- Error handling and user feedback
+
+### 3. **User Interface**
+- ปุ่ม "Force Create Database Tables" ในหน้า Settings
+- Visual feedback during table creation
+- Success/error messages
+- Automatic page reload
+
+### 4. **Error Handling**
+- Comprehensive try-catch blocks
 - Detailed error logging
+- User-friendly error messages
 - Graceful degradation
-
-### 3. **Activity Logging**
-- User activity tracking
-- IP address logging
-- User agent logging
-- Data serialization
-- Error recovery
-
-### 4. **Report System**
-- Report templates
-- Report generation
-- Export functionality
-- Error handling
 
 ## ✅ สรุปการแก้ไข
 
 ### **ปัญหาที่แก้ไข:**
 - ✅ Missing database tables
-- ✅ Undefined method errors
-- ✅ Activity logging failures
-- ✅ Reports page errors
-- ✅ Sync functionality errors
+- ✅ "Some tables are missing" error
+- ✅ ไม่มีวิธี force create tables
+- ✅ Database creation failures
 
 ### **การปรับปรุง:**
-- ✅ Complete database schema
-- ✅ Enhanced error handling
-- ✅ Robust activity logging
-- ✅ Improved report system
-- ✅ Better error recovery
+- ✅ Enhanced database creation with SQL
+- ✅ AJAX handler for force create tables
+- ✅ User interface for table creation
+- ✅ Comprehensive error handling
 
 ### **ผลลัพธ์:**
 - ✅ Database tables ถูกสร้างครบถ้วน
-- ✅ Report generator ทำงานได้
-- ✅ Activity logging ทำงานได้
-- ✅ Reports page แสดงผลได้
-- ✅ Sync functionality ทำงานได้
+- ✅ Settings page แสดงสถานะถูกต้อง
+- ✅ มีปุ่ม force create tables
+- ✅ AJAX functionality ทำงานได้
 
 ---
 
@@ -265,21 +320,26 @@ error_log("Activity log result: " . ($result ? 'SUCCESS' : 'FAIL'));
    - Reactivate plugin
    - ตรวจสอบ error logs
 
-2. **ตรวจสอบ Database Tables**
+2. **ตรวจสอบ Settings Page**
+   - ไปที่ TPAK DQ System > Settings
+   - ตรวจสอบว่า "Database Tables" แสดงสถานะถูกต้อง
+   - คลิกปุ่ม "Force Create Database Tables" หากจำเป็น
+
+3. **ตรวจสอบ Database Tables**
    - ไปที่ phpMyAdmin หรือ database tool
-   - ตรวจสอบว่าตาราง `wp_tpak_reports` และ `wp_tpak_activity_log` ถูกสร้างแล้ว
+   - ตรวจสอบว่าตาราง `wp_tpak_*` ถูกสร้างแล้ว
 
-3. **ทดสอบ Reports Page**
-   - ไปที่ TPAK DQ System > Reports
-   - ตรวจสอบว่า page โหลดได้
-   - ทดสอบ report generation
-
-4. **ทดสอบ Sync Functionality**
-   - ไปที่ TPAK DQ System > Questionnaires
-   - ทดสอบ sync button
-   - ตรวจสอบ activity logs
+4. **ทดสอบ AJAX Functionality**
+   - ทดสอบปุ่ม "Force Create Database Tables"
+   - ตรวจสอบว่า AJAX response ถูกต้อง
+   - ตรวจสอบว่า page reload หลังจากสำเร็จ
 
 5. **ตรวจสอบ Error Logs**
    - ตรวจสอบ WordPress error logs
    - ตรวจสอบ server error logs
-   - ตรวจสอบ plugin logs 
+   - ตรวจสอบ plugin logs
+
+6. **ทดสอบ Other Pages**
+   - ไปที่ TPAK DQ System > Questionnaires
+   - ไปที่ TPAK DQ System > Data Import
+   - ตรวจสอบว่า pages แสดงผลได้โดยไม่มี database errors 

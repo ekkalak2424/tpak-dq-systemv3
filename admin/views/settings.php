@@ -222,6 +222,10 @@ $core = TPAK_DQ_Core::get_instance();
         <button type="button" class="button" id="generate-reports">
             <?php _e('Generate Reports', 'tpak-dq-system'); ?>
         </button>
+        
+        <button type="button" class="button button-primary" id="force-create-tables">
+            <?php _e('Force Create Database Tables', 'tpak-dq-system'); ?>
+        </button>
     </p>
     
     <div id="action-results"></div>
@@ -337,6 +341,38 @@ jQuery(document).ready(function($) {
             },
             complete: function() {
                 button.prop('disabled', false).text('<?php _e('Generate Reports', 'tpak-dq-system'); ?>');
+            }
+        });
+    });
+    
+    // Force create tables
+    $('#force-create-tables').on('click', function() {
+        var button = $(this);
+        button.prop('disabled', true).text('<?php _e('Creating Tables...', 'tpak-dq-system'); ?>');
+        
+        $.ajax({
+            url: tpak_dq_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'tpak_dq_force_create_tables',
+                nonce: tpak_dq_ajax.nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    $('#action-results').html('<div class="notice notice-success"><p>' + response.data + '</p></div>');
+                    // Reload page after successful table creation
+                    setTimeout(function() {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    $('#action-results').html('<div class="notice notice-error"><p>' + response.data + '</p></div>');
+                }
+            },
+            error: function() {
+                $('#action-results').html('<div class="notice notice-error"><p><?php _e('Failed to create database tables', 'tpak-dq-system'); ?></p></div>');
+            },
+            complete: function() {
+                button.prop('disabled', false).text('<?php _e('Force Create Database Tables', 'tpak-dq-system'); ?>');
             }
         });
     });

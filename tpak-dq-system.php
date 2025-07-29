@@ -476,8 +476,261 @@ class TPAK_DQ_System {
         
         if (!empty($missing_tables)) {
             error_log("TPAK DQ System: Recreating missing tables: " . implode(', ', $missing_tables));
-            $this->create_tables();
+            $this->force_create_tables();
         }
+    }
+    
+    /**
+     * Force create tables ด้วย SQL โดยตรง
+     */
+    public function force_create_tables() {
+        global $wpdb;
+        
+        error_log('TPAK DQ System: Force creating tables...');
+        
+        // ใช้ SQL โดยตรงแทน dbDelta
+        $tables_created = 0;
+        
+        // ตารางแบบสอบถาม
+        $table_questionnaires = $wpdb->prefix . 'tpak_questionnaires';
+        $sql_questionnaires = "CREATE TABLE IF NOT EXISTS $table_questionnaires (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            limesurvey_id varchar(50) NOT NULL,
+            title varchar(255) NOT NULL,
+            description text,
+            status varchar(20) DEFAULT 'active',
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY limesurvey_id (limesurvey_id),
+            KEY status (status),
+            KEY created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        
+        if ($wpdb->query($sql_questionnaires) !== false) {
+            $tables_created++;
+            error_log("TPAK DQ System: Created table: $table_questionnaires");
+        }
+        
+        // ตารางการตรวจสอบคุณภาพข้อมูล
+        $table_quality_checks = $wpdb->prefix . 'tpak_quality_checks';
+        $sql_quality_checks = "CREATE TABLE IF NOT EXISTS $table_quality_checks (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            questionnaire_id mediumint(9) NOT NULL,
+            check_type varchar(50) NOT NULL,
+            check_config text NOT NULL,
+            is_active tinyint(1) DEFAULT 1,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY questionnaire_id (questionnaire_id),
+            KEY check_type (check_type),
+            KEY is_active (is_active)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        
+        if ($wpdb->query($sql_quality_checks) !== false) {
+            $tables_created++;
+            error_log("TPAK DQ System: Created table: $table_quality_checks");
+        }
+        
+        // ตารางผลการตรวจสอบ
+        $table_check_results = $wpdb->prefix . 'tpak_check_results';
+        $sql_check_results = "CREATE TABLE IF NOT EXISTS $table_check_results (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            questionnaire_id mediumint(9) NOT NULL,
+            check_id mediumint(9) NOT NULL,
+            response_id varchar(50) NOT NULL,
+            result_status varchar(20) NOT NULL,
+            result_message text,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY questionnaire_id (questionnaire_id),
+            KEY check_id (check_id),
+            KEY response_id (response_id),
+            KEY result_status (result_status),
+            KEY created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        
+        if ($wpdb->query($sql_check_results) !== false) {
+            $tables_created++;
+            error_log("TPAK DQ System: Created table: $table_check_results");
+        }
+        
+        // ตารางชุดข้อมูลตรวจสอบ
+        $table_verification_batches = $wpdb->prefix . 'tpak_verification_batches';
+        $sql_verification_batches = "CREATE TABLE IF NOT EXISTS $table_verification_batches (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            batch_name varchar(255) NOT NULL,
+            questionnaire_id mediumint(9) NOT NULL,
+            batch_type varchar(50) NOT NULL DEFAULT 'manual',
+            status varchar(20) NOT NULL DEFAULT 'pending',
+            total_records int(11) DEFAULT 0,
+            processed_records int(11) DEFAULT 0,
+            verified_records int(11) DEFAULT 0,
+            rejected_records int(11) DEFAULT 0,
+            created_by bigint(20) unsigned NOT NULL,
+            assigned_to bigint(20) unsigned DEFAULT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            completed_at datetime DEFAULT NULL,
+            PRIMARY KEY (id),
+            KEY questionnaire_id (questionnaire_id),
+            KEY status (status),
+            KEY batch_type (batch_type),
+            KEY created_by (created_by),
+            KEY assigned_to (assigned_to),
+            KEY created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        
+        if ($wpdb->query($sql_verification_batches) !== false) {
+            $tables_created++;
+            error_log("TPAK DQ System: Created table: $table_verification_batches");
+        }
+        
+        // ตารางข้อมูลจาก LimeSurvey
+        $table_survey_data = $wpdb->prefix . 'tpak_survey_data';
+        $sql_survey_data = "CREATE TABLE IF NOT EXISTS $table_survey_data (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            limesurvey_id varchar(50) NOT NULL,
+            response_id varchar(50) NOT NULL,
+            questionnaire_id mediumint(9) NOT NULL,
+            batch_id mediumint(9) DEFAULT NULL,
+            respondent_id varchar(100) DEFAULT NULL,
+            response_data longtext NOT NULL,
+            response_status varchar(20) DEFAULT 'submitted',
+            submission_date datetime DEFAULT NULL,
+            last_updated datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            sync_status varchar(20) DEFAULT 'pending',
+            sync_attempts int(11) DEFAULT 0,
+            PRIMARY KEY (id),
+            UNIQUE KEY response_id (response_id),
+            KEY limesurvey_id (limesurvey_id),
+            KEY questionnaire_id (questionnaire_id),
+            KEY batch_id (batch_id),
+            KEY response_status (response_status),
+            KEY sync_status (sync_status),
+            KEY submission_date (submission_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        
+        if ($wpdb->query($sql_survey_data) !== false) {
+            $tables_created++;
+            error_log("TPAK DQ System: Created table: $table_survey_data");
+        }
+        
+        // ตารางประวัติการตรวจสอบ
+        $table_verification_logs = $wpdb->prefix . 'tpak_verification_logs';
+        $sql_verification_logs = "CREATE TABLE IF NOT EXISTS $table_verification_logs (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            batch_id mediumint(9) NOT NULL,
+            response_id varchar(50) NOT NULL,
+            verifier_id bigint(20) unsigned NOT NULL,
+            verification_status varchar(20) NOT NULL,
+            verification_notes text,
+            verification_date datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY batch_id (batch_id),
+            KEY response_id (response_id),
+            KEY verifier_id (verifier_id),
+            KEY verification_status (verification_status),
+            KEY verification_date (verification_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        
+        if ($wpdb->query($sql_verification_logs) !== false) {
+            $tables_created++;
+            error_log("TPAK DQ System: Created table: $table_verification_logs");
+        }
+        
+        // ตารางสถานะ workflow
+        $table_workflow_status = $wpdb->prefix . 'tpak_workflow_status';
+        $sql_workflow_status = "CREATE TABLE IF NOT EXISTS $table_workflow_status (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            batch_id mediumint(9) NOT NULL,
+            current_state varchar(50) NOT NULL DEFAULT 'pending',
+            previous_state varchar(50) DEFAULT NULL,
+            state_changed_by bigint(20) unsigned NOT NULL,
+            state_changed_at datetime DEFAULT CURRENT_TIMESTAMP,
+            workflow_notes text,
+            PRIMARY KEY (id),
+            UNIQUE KEY batch_id (batch_id),
+            KEY current_state (current_state),
+            KEY state_changed_by (state_changed_by),
+            KEY state_changed_at (state_changed_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        
+        if ($wpdb->query($sql_workflow_status) !== false) {
+            $tables_created++;
+            error_log("TPAK DQ System: Created table: $table_workflow_status");
+        }
+        
+        // ตาราง reports
+        $table_reports = $wpdb->prefix . 'tpak_reports';
+        $sql_reports = "CREATE TABLE IF NOT EXISTS $table_reports (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            report_type varchar(50) NOT NULL,
+            report_name varchar(255) NOT NULL,
+            report_data longtext,
+            file_path varchar(500),
+            generated_by bigint(20) unsigned,
+            generated_at datetime DEFAULT CURRENT_TIMESTAMP,
+            status varchar(20) DEFAULT 'completed',
+            PRIMARY KEY (id),
+            KEY report_type (report_type),
+            KEY generated_by (generated_by),
+            KEY generated_at (generated_at),
+            KEY status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        
+        if ($wpdb->query($sql_reports) !== false) {
+            $tables_created++;
+            error_log("TPAK DQ System: Created table: $table_reports");
+        }
+        
+        // ตาราง activity log
+        $table_activity_log = $wpdb->prefix . 'tpak_activity_log';
+        $sql_activity_log = "CREATE TABLE IF NOT EXISTS $table_activity_log (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            user_id bigint(20) unsigned,
+            action varchar(100) NOT NULL,
+            message text NOT NULL,
+            data longtext,
+            ip_address varchar(45),
+            user_agent text,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY user_id (user_id),
+            KEY action (action),
+            KEY created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        
+        if ($wpdb->query($sql_activity_log) !== false) {
+            $tables_created++;
+            error_log("TPAK DQ System: Created table: $table_activity_log");
+        }
+        
+        // ตาราง notifications
+        $table_notifications = $wpdb->prefix . 'tpak_notifications';
+        $sql_notifications = "CREATE TABLE IF NOT EXISTS $table_notifications (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            user_id bigint(20) unsigned NOT NULL,
+            notification_type varchar(50) NOT NULL,
+            title varchar(255) NOT NULL,
+            message text NOT NULL,
+            is_read tinyint(1) DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY user_id (user_id),
+            KEY notification_type (notification_type),
+            KEY is_read (is_read),
+            KEY created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        
+        if ($wpdb->query($sql_notifications) !== false) {
+            $tables_created++;
+            error_log("TPAK DQ System: Created table: $table_notifications");
+        }
+        
+        error_log("TPAK DQ System: Force created $tables_created tables");
+        return $tables_created;
     }
     
     /**
