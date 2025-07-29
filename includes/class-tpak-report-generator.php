@@ -33,6 +33,16 @@ class TPAK_Report_Generator {
     }
     
     /**
+     * รับ instance เดียวของ class
+     */
+    public static function get_instance() {
+        if (null === self::$instance) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+    
+    /**
      * Constructor
      */
     private function __construct() {

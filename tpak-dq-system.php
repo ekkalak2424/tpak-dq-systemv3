@@ -177,6 +177,9 @@ class TPAK_DQ_System {
         
         // Flush rewrite rules
         flush_rewrite_rules();
+        
+        // Log activation
+        error_log('TPAK DQ System: Plugin activated successfully');
     }
     
     /**

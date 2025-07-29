@@ -729,5 +729,75 @@ class TPAK_DQ_Admin {
      */
     public function admin_notices() {
         // แสดงการแจ้งเตือนต่างๆ
+        if (isset($_GET['tpak_dq_message'])) {
+            $message = sanitize_text_field($_GET['tpak_dq_message']);
+            $type = isset($_GET['tpak_dq_type']) ? sanitize_text_field($_GET['tpak_dq_type']) : 'info';
+            
+            echo '<div class="notice notice-' . esc_attr($type) . ' is-dismissible"><p>' . esc_html($message) . '</p></div>';
+        }
+    }
+    
+    /**
+     * รับจำนวน pending verifications
+     */
+    public function get_pending_verifications_count() {
+        global $wpdb;
+        
+        $table_batches = $wpdb->prefix . 'tpak_verification_batches';
+        $table_workflow = $wpdb->prefix . 'tpak_workflow_status';
+        
+        $count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table_batches vb
+             LEFT JOIN $table_workflow ws ON vb.id = ws.batch_id
+             WHERE ws.current_state = %s",
+            'pending'
+        ));
+        
+        return intval($count);
+    }
+    
+    /**
+     * รับจำนวน active questionnaires
+     */
+    public function get_active_questionnaires_count() {
+        global $wpdb;
+        
+        $table_questionnaires = $wpdb->prefix . 'tpak_questionnaires';
+        
+        $count = $wpdb->get_var(
+            "SELECT COUNT(*) FROM $table_questionnaires WHERE status = 'active'"
+        );
+        
+        return intval($count);
+    }
+    
+    /**
+     * รับจำนวน quality checks
+     */
+    public function get_quality_checks_count() {
+        global $wpdb;
+        
+        $table_checks = $wpdb->prefix . 'tpak_quality_checks';
+        
+        $count = $wpdb->get_var(
+            "SELECT COUNT(*) FROM $table_checks"
+        );
+        
+        return intval($count);
+    }
+    
+    /**
+     * รับจำนวน reports
+     */
+    public function get_reports_count() {
+        global $wpdb;
+        
+        $table_reports = $wpdb->prefix . 'tpak_reports';
+        
+        $count = $wpdb->get_var(
+            "SELECT COUNT(*) FROM $table_reports"
+        );
+        
+        return intval($count);
     }
 } 
