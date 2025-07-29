@@ -858,4 +858,144 @@ class TPAK_DQ_Admin {
         
         return intval($count);
     }
+    
+    /**
+     * รับจำนวน total questionnaires
+     */
+    public function get_total_questionnaires_count() {
+        global $wpdb;
+        
+        $table_questionnaires = $wpdb->prefix . 'tpak_questionnaires';
+        
+        $count = $wpdb->get_var(
+            "SELECT COUNT(*) FROM $table_questionnaires"
+        );
+        
+        return intval($count);
+    }
+    
+    /**
+     * รับจำนวน total quality checks
+     */
+    public function get_total_quality_checks_count() {
+        global $wpdb;
+        
+        $table_checks = $wpdb->prefix . 'tpak_quality_checks';
+        
+        $count = $wpdb->get_var(
+            "SELECT COUNT(*) FROM $table_checks"
+        );
+        
+        return intval($count);
+    }
+    
+    /**
+     * รับจำนวน total reports
+     */
+    public function get_total_reports_count() {
+        global $wpdb;
+        
+        $table_reports = $wpdb->prefix . 'tpak_reports';
+        
+        $count = $wpdb->get_var(
+            "SELECT COUNT(*) FROM $table_reports"
+        );
+        
+        return intval($count);
+    }
+    
+    /**
+     * รับจำนวน total verification batches
+     */
+    public function get_total_verification_batches_count() {
+        global $wpdb;
+        
+        $table_batches = $wpdb->prefix . 'tpak_verification_batches';
+        
+        $count = $wpdb->get_var(
+            "SELECT COUNT(*) FROM $table_batches"
+        );
+        
+        return intval($count);
+    }
+    
+    /**
+     * รับจำนวน system health score
+     */
+    public function get_system_health_score() {
+        global $wpdb;
+        
+        $table_checks = $wpdb->prefix . 'tpak_check_results';
+        
+        // คำนวณ health score จาก quality check results
+        $total_checks = $wpdb->get_var(
+            "SELECT COUNT(*) FROM $table_checks"
+        );
+        
+        $passed_checks = $wpdb->get_var(
+            "SELECT COUNT(*) FROM $table_checks WHERE result_status = 'passed'"
+        );
+        
+        if ($total_checks > 0) {
+            $score = round(($passed_checks / $total_checks) * 100);
+        } else {
+            $score = 100; // ถ้าไม่มี checks ให้เป็น 100%
+        }
+        
+        return $score;
+    }
+    
+    /**
+     * รับจำนวน active quality checks
+     */
+    public function get_active_quality_checks_count() {
+        global $wpdb;
+        
+        $table_checks = $wpdb->prefix . 'tpak_quality_checks';
+        
+        $count = $wpdb->get_var(
+            "SELECT COUNT(*) FROM $table_checks WHERE is_active = 1"
+        );
+        
+        return intval($count);
+    }
+    
+    /**
+     * รับ current workflow step class
+     */
+    public function get_current_workflow_step_class() {
+        global $wpdb;
+        
+        $table_workflow = $wpdb->prefix . 'tpak_workflow_status';
+        
+        $current_state = $wpdb->get_var(
+            "SELECT current_state FROM $table_workflow ORDER BY updated_at DESC LIMIT 1"
+        );
+        
+        if ($current_state) {
+            return 'tpak-step-' . $current_state;
+        }
+        
+        return 'tpak-step-pending';
+    }
+    
+    /**
+     * รับ workflow step class
+     */
+    public function get_workflow_step_class($step) {
+        global $wpdb;
+        
+        $table_workflow = $wpdb->prefix . 'tpak_workflow_status';
+        
+        $count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table_workflow WHERE current_state = %s",
+            $step
+        ));
+        
+        if ($count > 0) {
+            return 'tpak-step-active';
+        }
+        
+        return 'tpak-step-inactive';
+    }
 } 
