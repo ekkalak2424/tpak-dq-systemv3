@@ -124,6 +124,13 @@ class TPAK_DQ_Core {
     }
     
     /**
+     * รับ LimeSurvey Client instance (alias for API)
+     */
+    public function get_limesurvey_client() {
+        return $this->get_limesurvey_api();
+    }
+    
+    /**
      * รับ Questionnaire Manager instance (lazy loading)
      */
     public function get_questionnaire_manager() {
@@ -391,12 +398,13 @@ class TPAK_DQ_Core {
         try {
             $this->check_memory_limit();
             
-            $result = $this->sync_questionnaires();
+            $limesurvey_api = $this->get_limesurvey_api();
+            $result = $limesurvey_api->sync_all_surveys();
             
-            if ($result) {
-                wp_send_json_success(__('All surveys synced successfully.', 'tpak-dq-system'));
+            if ($result['success']) {
+                wp_send_json_success($result['message']);
             } else {
-                wp_send_json_error(__('Failed to sync surveys.', 'tpak-dq-system'));
+                wp_send_json_error($result['message']);
             }
         } catch (Exception $e) {
             wp_send_json_error($e->getMessage());

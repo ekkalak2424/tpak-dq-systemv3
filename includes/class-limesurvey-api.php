@@ -98,6 +98,82 @@ class TPAK_LimeSurvey_API {
     }
     
     /**
+     * Sync แบบสอบถามทั้งหมด
+     */
+    public function sync_all_surveys() {
+        try {
+            $surveys = $this->get_surveys();
+            $synced_count = 0;
+            
+            foreach ($surveys as $survey) {
+                if ($this->sync_single_survey($survey['sid'])) {
+                    $synced_count++;
+                }
+            }
+            
+            return array(
+                'success' => true,
+                'message' => sprintf(__('Successfully synced %d surveys.', 'tpak-dq-system'), $synced_count),
+                'count' => $synced_count
+            );
+        } catch (Exception $e) {
+            return array(
+                'success' => false,
+                'message' => $e->getMessage()
+            );
+        }
+    }
+    
+    /**
+     * Sync แบบสอบถามเดี่ยว
+     */
+    public function sync_single_survey($survey_id) {
+        try {
+            $this->ensure_authenticated();
+            
+            // รับรายละเอียดแบบสอบถาม
+            $survey_details = $this->get_survey_details($survey_id);
+            
+            // บันทึกลงฐานข้อมูล
+            global $wpdb;
+            $table = $wpdb->prefix . 'tpak_questionnaires';
+            
+            $data = array(
+                'limesurvey_id' => $survey_id,
+                'title' => $survey_details['title'],
+                'description' => $survey_details['description'] ?? '',
+                'status' => $survey_details['active'] ? 'active' : 'inactive',
+                'updated_at' => current_time('mysql')
+            );
+            
+            // ตรวจสอบว่ามีอยู่แล้วหรือไม่
+            $existing = $wpdb->get_row($wpdb->prepare(
+                "SELECT id FROM $table WHERE limesurvey_id = %s",
+                $survey_id
+            ));
+            
+            if ($existing) {
+                // อัปเดตข้อมูลที่มีอยู่
+                $result = $wpdb->update($table, $data, array('limesurvey_id' => $survey_id));
+            } else {
+                // เพิ่มข้อมูลใหม่
+                $data['created_at'] = current_time('mysql');
+                $result = $wpdb->insert($table, $data);
+            }
+            
+            if ($result === false) {
+                error_log("TPAK DQ System: Failed to sync survey $survey_id: " . $wpdb->last_error);
+                return false;
+            }
+            
+            return true;
+        } catch (Exception $e) {
+            error_log("TPAK DQ System: Error syncing survey $survey_id: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
      * รับรายละเอียดแบบสอบถาม
      */
     public function get_survey_details($survey_id) {

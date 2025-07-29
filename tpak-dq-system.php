@@ -172,6 +172,9 @@ class TPAK_DQ_System {
         // สร้างตารางฐานข้อมูล
         $this->create_tables();
         
+        // ตรวจสอบและสร้างตารางอีกครั้งหากจำเป็น
+        $this->ensure_tables_exist();
+        
         // สร้าง default options
         $this->set_default_options();
         
@@ -439,6 +442,41 @@ class TPAK_DQ_System {
         foreach ($tables as $table) {
             $exists = $wpdb->get_var("SHOW TABLES LIKE '$table'") == $table;
             error_log("TPAK DQ System: Table $table: " . ($exists ? 'EXISTS' : 'MISSING'));
+        }
+    }
+    
+    /**
+     * ตรวจสอบและสร้างตารางหากไม่มี
+     */
+    private function ensure_tables_exist() {
+        global $wpdb;
+        
+        $required_tables = array(
+            $wpdb->prefix . 'tpak_questionnaires',
+            $wpdb->prefix . 'tpak_quality_checks',
+            $wpdb->prefix . 'tpak_check_results',
+            $wpdb->prefix . 'tpak_verification_batches',
+            $wpdb->prefix . 'tpak_survey_data',
+            $wpdb->prefix . 'tpak_verification_logs',
+            $wpdb->prefix . 'tpak_workflow_status',
+            $wpdb->prefix . 'tpak_reports',
+            $wpdb->prefix . 'tpak_activity_log',
+            $wpdb->prefix . 'tpak_notifications'
+        );
+        
+        $missing_tables = array();
+        
+        foreach ($required_tables as $table) {
+            $exists = $wpdb->get_var("SHOW TABLES LIKE '$table'") == $table;
+            if (!$exists) {
+                $missing_tables[] = $table;
+                error_log("TPAK DQ System: Missing table: $table");
+            }
+        }
+        
+        if (!empty($missing_tables)) {
+            error_log("TPAK DQ System: Recreating missing tables: " . implode(', ', $missing_tables));
+            $this->create_tables();
         }
     }
     
